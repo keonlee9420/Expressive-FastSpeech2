@@ -1,0 +1,32 @@
+dataset: "AIHub-MMV"
+
+path:
+  corpus_path: "/path/to/AIHub-MMV"
+  sub_dir_name: "clips"
+  lexicon_path: "lexicon/aihub-mmv-lexicon.txt"
+  fixed_text_path: "./preparation/aihub_mmv_fixed.txt"
+  raw_path: "./raw_data/AIHub-MMV"
+  preprocessed_path: "./preprocessed_data/AIHub-MMV"
+
+preprocessing:
+  val_size: 512
+  text:
+    text_cleaners: ["korean_cleaners"]
+    language: "kr"
+  audio:
+    sampling_rate: 22050
+    max_wav_value: 32768.0
+  stft:
+    filter_length: 1024
+    hop_length: 256
+    win_length: 1024
+  mel:
+    n_mel_channels: 80
+    mel_fmin: 0
+    mel_fmax: 8000 # please set to 8000 for HiFi-GAN vocoder, set to null for MelGAN vocoder
+  pitch:
+    feature: "phoneme_level" # support 'phoneme_level' or 'frame_level'
+    normalization: True
+  energy:
+    feature: "phoneme_level" # support 'phoneme_level' or 'frame_level'
+    normalization: True
