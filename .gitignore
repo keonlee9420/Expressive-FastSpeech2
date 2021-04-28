@@ -119,4 +119,4 @@ hifigan/*.pth.tar
 lexicon/
 montreal-forced-aligner/
 preprocessed_data/
-preparation/aihub_mmv_fixed.txt
+preparation/*.txt

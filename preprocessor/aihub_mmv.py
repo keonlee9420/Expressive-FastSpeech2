@@ -4,6 +4,7 @@ import librosa
 import numpy as np
 from scipy.io import wavfile
 from tqdm import tqdm
+from shutil import copyfile
 
 from text import _clean_text
 
@@ -66,3 +67,6 @@ def prepare_align(config):
             else:
                 filelist_fixed.write(line)
     filelist_fixed.close()
+
+    # Speaker Info
+    copyfile(f'{in_dir}/speaker_info.txt', f'{out_dir}/speaker_info.txt')

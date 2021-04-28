@@ -12,7 +12,7 @@ from utils.model import get_model, get_vocoder
 from utils.tools import to_device, synth_samples
 from dataset import TextDataset
 from text import text_to_sequence
-from text.korean import tokenize
+from text.korean import tokenize, normalize_nonchar
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -40,7 +40,7 @@ def preprocess_korean(text, preprocess_config):
         else:
             phones += list(filter(lambda p: p != " ", tokenize(w, norm=False)))
     phones = "{" + "}{".join(phones) + "}"
-    phones = re.sub(r"\{[^\w\s]?\}", "{sp}", phones)
+    phones = normalize_nonchar(phones, inference=True)
     phones = phones.replace("}{", " ")
 
     print("Raw Text Sequence: {}".format(text))
