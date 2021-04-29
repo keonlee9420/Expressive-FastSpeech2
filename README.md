@@ -16,7 +16,10 @@
     <img src="img/model_emotional_tts.png" width="80%">
 </p>
 
-This project follows the basic conditioning paradigm of auxiliary inputs in addition to text input. As presented in [Emotional End-to-End Neural Speech synthesizer](https://arxiv.org/pdf/1711.05447.pdf), emotion embedding is conditioned in utterance level. Based on the dataset, emotion, arousal, and valence are employed for the embedding. They are first projected in subspaces and concatenated channel-wise to keep the dependency among each other. The concatenated embedding is then passed through a single linear layer with ReLU activation for the fusion, comsumed by the decoder to synthesize speech in given emotional conditions. In this project, FastSpeech2 is adapted as a base multi-speaker TTS framework, so it would be helpful to read [the paper](https://arxiv.org/abs/2006.04558) and [code](https://github.com/ming024/FastSpeech2) first.
+This project follows the basic conditioning paradigm of auxiliary inputs in addition to text input. As presented in [Emotional End-to-End Neural Speech synthesizer](https://arxiv.org/pdf/1711.05447.pdf), emotion embedding is conditioned in utterance level. Based on the dataset, emotion, arousal, and valence are employed for the embedding. They are first projected in subspaces and concatenated channel-wise to keep the dependency among each other. The concatenated embedding is then passed through a single linear layer with ReLU activation for the fusion, comsumed by the decoder to synthesize speech in given emotional conditions. In this project, FastSpeech2 is adapted as a base multi-speaker TTS framework, so it would be helpful to read [the paper](https://arxiv.org/abs/2006.04558) and [code](https://github.com/ming024/FastSpeech2) first. There are two variants of the conditioning method:
+
+- `categorical` branch: only conditioning categorical emotional descriptors (such as happy, sad, etc.)
+- `continuous` branch: conditioning continuous emotional descriptors (such as arousal, valence, etc.) in addition to categorical emotional descriptors
 
 # Dependencies
 
@@ -259,48 +262,6 @@ to serve TensorBoard on your localhost. The loss curves, synthesized mel-spectro
     Based on it, prepare the the correction filelist in `preparation/` just like `*_fixed.txt`.
 
 - Then, follow the Train section start from Preprocess.
-
-### Model Architecture
-
-You may only consider categorical emotional descriptor`emotion` without continuous emotional descriptor `arousal` and `valence` as follows:
-
-```python
-# In model/fastspeech2.py
-
-class FastSpeech2(nn.Module):
-    """ FastSpeech2 """
-
-    def __init__(self, preprocess_config, model_config):
-        super(FastSpeech2, self).__init__()
-
-				...
-
-				self.emotion_emb = None
-        if model_config["multi_emotion"]:
-            with open(
-                os.path.join(
-                    preprocess_config["path"]["preprocessed_path"], "emotions.json"
-                ),
-                "r",
-            ) as f:
-                json_raw = json.load(f)
-                n_emotion = len(json_raw["emotion_dict"])
-            self.emotion_emb = nn.Embedding(
-                n_emotion,
-                model_config["transformer"]["encoder_hidden"],
-            )
-
-		def forward(self, ... ):
-
-				...
-
-				if self.emotion_emb is not None:
-            output = output + self.emotion_emb(emotions).unsqueeze(1).expand(
-                -1, max_src_len, -1
-            )
-
-				...
-```
 
 # References
 
