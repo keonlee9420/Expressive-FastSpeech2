@@ -1,8 +1,9 @@
 # Config
 
-Here is the config file used to train the emotional TTS models:
+Here is the config file used to train the multi-speaker emotional TTS models. Two different configurations are given:
 
 - AIHub-MMV: suggested configuration for AIHub-MMV dataset.
+- IEMOCAP: suggested configuration for IEMOCAP dataset.
 
 Some important hyper-parameters are explained here.
 

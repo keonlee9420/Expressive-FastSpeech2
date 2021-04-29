@@ -2,12 +2,14 @@ import argparse
 
 import yaml
 
-from preprocessor import aihub_mmv
+from preprocessor import aihub_mmv, iemocap
 
 
 def main(config):
     if "AIHub-MMV" in config["dataset"]:
         aihub_mmv.prepare_align(config)
+    if "IEMOCAP" in config["dataset"]:
+        iemocap.prepare_align(config)
 
 
 if __name__ == "__main__":

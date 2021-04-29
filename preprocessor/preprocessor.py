@@ -21,10 +21,9 @@ class Preprocessor:
         self.sub_dir = ""
         self.speakers = dict()
         self.emotions = dict()
-        if self.dataset == "AIHub-MMV":
-            self.sub_dir = config["path"]["sub_dir_name"]
-            self.speakers = self.load_speaker_dict()
-            self.filelist, self.emotions = self.load_filelist_dict()
+        self.sub_dir = config["path"]["sub_dir_name"]
+        self.speakers = self.load_speaker_dict()
+        self.filelist, self.emotions = self.load_filelist_dict()
         self.in_dir = os.path.join(config["path"]["raw_path"], self.sub_dir)
         self.out_dir = config["path"]["preprocessed_path"]
         self.val_size = config["preprocessing"]["val_size"]
@@ -77,8 +76,8 @@ class Preprocessor:
                 basename, aux_data = line.split("|")[0], line.split("|")[3:]
                 filelist_dict[basename] = "|".join(aux_data).strip("\n")
                 emotions.add(aux_data[-3])
-                arousals.add(int(aux_data[-2]))
-                valences.add(int(aux_data[-1].strip("\n")))
+                arousals.add(aux_data[-2])
+                valences.add(aux_data[-1].strip("\n"))
         for i, emotion in enumerate(list(emotions)):
             emotion_dict[emotion] = i
         for i, arousal in enumerate(list(arousals)):
@@ -107,7 +106,7 @@ class Preprocessor:
         # Compute pitch, energy, duration, and mel-spectrogram
         speakers = self.speakers.copy()
         for i, speaker in enumerate(tqdm(os.listdir(self.in_dir))):
-            if len(self.dataset) == 0:
+            if len(self.speakers) == 0:
                 speakers[speaker] = i
             for wav_name in os.listdir(os.path.join(self.in_dir, speaker)):
                 if ".wav" not in wav_name:
@@ -206,9 +205,8 @@ class Preprocessor:
         tg_path = os.path.join(
             self.out_dir, "TextGrid", speaker, "{}.TextGrid".format(basename)
         )
-        if self.dataset == "AIHub-MMV":
-            speaker = basename.split("_")[1]
-            aux_data = self.filelist[basename]
+        speaker = basename.split("_")[1]
+        aux_data = self.filelist[basename]
 
         # Get alignments
         textgrid = tgt.io.read_textgrid(tg_path)

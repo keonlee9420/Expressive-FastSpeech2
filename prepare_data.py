@@ -1,8 +1,8 @@
 import argparse
-
+import os
 import yaml
 
-from preparation import aihub_mmv
+from preparation import aihub_mmv, iemocap
 
 
 def main(args, preprocess_config):
@@ -21,6 +21,13 @@ def main(args, preprocess_config):
             if args.extract_audio:
                 aihub_mmv.extract_audio(preprocess_config)
             aihub_mmv.create_dataset(preprocess_config)
+    elif "IEMOCAP" in preprocess_config["dataset"]:
+        if args.extract_nonen:
+            iemocap.extract_nonen(preprocess_config)
+        elif args.extract_lexicon:
+            iemocap.extract_lexicon(preprocess_config)
+        elif args.apply_fixed_text:
+            iemocap.apply_fixed_text(preprocess_config)
 
 
 if __name__ == "__main__":
@@ -40,6 +47,11 @@ if __name__ == "__main__":
     parser.add_argument(
         '--extract_nonkr',
         help='extract non korean charactor',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--extract_nonen',
+        help='extract non english charactor',
         action='store_true',
     )
     parser.add_argument(

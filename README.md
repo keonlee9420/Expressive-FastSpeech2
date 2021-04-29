@@ -2,9 +2,9 @@
 
 ## Contributions
 
-1. **`Non-autoregressive Emotional TTS`**: This project aims to provide a cornerstone for future research and application on a non-autoregressive emotional TTS.
+1. **`Non-autoregressive Emotional TTS`**: This project aims to provide a cornerstone for future research and application on a non-autoregressive emotional TTS. For dataset, [AIHub Multimodal Video AI datasets](https://www.aihub.or.kr/aidata/137) and [IEMOCAP database](https://sail.usc.edu/iemocap/) are picked for Korean and English, respectively.
 2. **`Annotated Data Processing`**: This project shed light on how to handle the new dataset, even with a different language, for the successful training of non-autoregressive emotional TTS.
-3. **`Korean TTS`**: Especially, this project gives a broad view of treating Korean for the non-autoregressive TTS where the additional data processing must be considered under the language-specific features (e.g., training Montreal Forced Aligner with your own language and dataset). Please closely look into `text/`.
+3. **`English and Korean TTS`**: In addition to English, this project gives a broad view of treating Korean for the non-autoregressive TTS where the additional data processing must be considered under the language-specific features (e.g., training Montreal Forced Aligner with your own language and dataset). Please closely look into `text/`.
 
 ## Model Architecture
 
@@ -28,70 +28,136 @@ pip3 install -r requirements.txt
 
 # Synthesize Using Pre-trained Model
 
-Not permitted to share pre-trained model publically due to the copyright of [AIHub Multimodal Videon AI datasets](https://www.aihub.or.kr/aidata/137).
+Not permitted to share pre-trained model publically due to the copyright of [AIHub Multimodal Video AI datasets](https://www.aihub.or.kr/aidata/137) and [IEMOCAP database](https://sail.usc.edu/iemocap/).
 
 # Train
 
-## Preparation
+## Data Preparation
 
-1. Download [AIHub Multimodal Videon AI datasets](https://www.aihub.or.kr/aidata/137) and set `corpus_path` in `config/AIHub-MMV/preprocess.yaml`. You must get the permission to download the dataset.
+### Korean (Video → Audio)
+
+1. Download [AIHub Multimodal Video AI datasets](https://www.aihub.or.kr/aidata/137) and set `corpus_path` in `config/AIHub-MMV/preprocess.yaml`. You must get the permission to download the dataset.
 2. Since the dataset contains raw videos, you need to convert and split each video clip into a audio utterance. For that, the following script will convert files from `.mp4` to `.wav` and then split each clip based on the `.json` file (metadata). It also builds `filelist.txt` and `speaker_info.txt`.
-   ```bash
-   python3 prepare_data.py --extract_audio -p config/AIHub-MMV/preprocess.yaml
-   ```
+
+    ```bash
+    python3 prepare_data.py --extract_audio -p config/AIHub-MMV/preprocess.yaml
+    ```
+
 3. Update `corpus_path` to the preprocessed data path, e.g., from `AIHub-MMV` to `AIHub-MMV_preprocessed`.
+
+### English (Audio)
+
+1. Download [IEMOCAP database](https://sail.usc.edu/iemocap/) and set `corpus_path` in `config/AIHub-MMV/preprocess.yaml`. You must get the permission to download the dataset.
 
 ## Preprocess
 
+### Korean
+
 1. With the prepared dataset, set up some prerequisites. The following command will process the audios and transcripts. The transcripts are normalized to grapheme of Korean by `korean_cleaners` in `/text/cleaners.py`. The results will be located at `raw_path` defined in `config/AIHub-MMV/preprocess.yaml`.
 
-   ```bash
-   python3 prepare_align.py config/AIHub-MMV/preprocess.yaml
-   ```
+    ```bash
+    python3 prepare_align.py config/AIHub-MMV/preprocess.yaml
+    ```
+
 2. As in FastSpeech2, [Montreal Forced Aligner](https://montreal-forced-aligner.readthedocs.io/en/latest/) (MFA) is used to obtain the alignments between the utterances and the phoneme sequences. Download and set up the environment to use MFA following the [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/installation.html). The version used in this project is `2.0.0a13`.
-   You can get alignments by either training MFA from scratch or using pre-trained model. Note that the training MFA may take several hours or days, depending on the corpus size.
 
-   ### Train MFA from scratch
+    You can get alignments by either training MFA from scratch or using pre-trained model. Note that the training MFA may take several hours or days, depending on the corpus size.
 
-   To train MFA, grapheme-phoneme dictionary that covers all the words in the dataset is required. Following command will generate such dictionary in `lexicon/`.
+    ### Train MFA from scratch
 
+    To train MFA, grapheme-phoneme dictionary that covers all the words in the dataset is required. Following command will generate such dictionary in `lexicon/`.
 
-   ```bash
-   python3 prepare_data.py --extract_lexicon -p config/AIHub-MMV/preprocess.yaml
-   ```
+    ```bash
+    python3 prepare_data.py --extract_lexicon -p config/AIHub-MMV/preprocess.yaml
+    ```
 
-   After that, train MFA.
+    After that, train MFA.
 
-   ```bash
-   mfa train ./raw_data/AIHub-MMV/clips lexicon/aihub-mmv-lexicon.txt preprocessed_data/AIHub-MMV/TextGrid --output_model_path montreal-forced-aligner/aihub-mmv-aligner --speaker_characters prosodylab -j 8 --clean
-   ```
+    ```bash
+    mfa train ./raw_data/AIHub-MMV/clips lexicon/aihub-mmv-lexicon.txt preprocessed_data/AIHub-MMV/TextGrid --output_model_path montreal-forced-aligner/aihub-mmv-aligner --speaker_characters prosodylab -j 8 --clean
+    ```
 
-   It will generates both TextGrid in `preprocessed_data/AIHub-MMV/TextGrid/` and trained models in `montreal-forced-aligner/`. See [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/aligning.html#align-using-only-the-data-set) for the details.
+    It will generates both TextGrid in `preprocessed_data/AIHub-MMV/TextGrid/` and trained models in `montreal-forced-aligner/`. See [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/aligning.html#align-using-only-the-data-set) for the details.
 
-   ### Using Pre-trained Models
+    ### Using Pre-trained Models
 
-   If you want to re-align the dataset using the extracted lexicon dictionary and trained MFA models from the previous step, run the following command.
+    If you want to re-align the dataset using the extracted lexicon dictionary and trained MFA models from the previous step, run the following command.
 
-   ```bash
-   mfa align ./raw_data/AIHub-MMV/clips lexicon/aihub-mmv-lexicon.txt montreal-forced-aligner/aihub-mmv-aligner.zip preprocessed_data/AIHub-MMV/TextGrid --speaker_characters prosodylab -j 8 --clean
-   ```
+    ```bash
+    mfa align ./raw_data/AIHub-MMV/clips lexicon/aihub-mmv-lexicon.txt montreal-forced-aligner/aihub-mmv-aligner.zip preprocessed_data/AIHub-MMV/TextGrid --speaker_characters prosodylab -j 8 --clean
+    ```
 
-   It will generates TextGrid in `preprocessed_data/AIHub-MMV/TextGrid/`. See [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/aligning.html#align-using-pretrained-models) for the details.
+    It will generates TextGrid in `preprocessed_data/AIHub-MMV/TextGrid/`. See [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/aligning.html#align-using-pretrained-models) for the details.
+
 3. Finally, run the preprocessing script. It will extract and save duration, energy, mel-spectrogram, and pitch in `preprocessed_data/AIHub-MMV/` from each audio.
 
-   ```bash
-   python3 preprocess.py config/AIHub-MMV/preprocess.yaml
-   ```
+    ```bash
+    python3 preprocess.py config/AIHub-MMV/preprocess.yaml
+    ```
+
+### English
+
+1. With the prepared dataset, set up some prerequisites. The following command will process the audios and transcripts. The transcripts are normalized to grapheme of English by `english_cleaners` in `/text/cleaners.py`. The results will be located at `raw_path` defined in `config/IEMOCAP/preprocess.yaml`.
+
+    ```bash
+    python3 prepare_align.py config/IEMOCAP/preprocess.yaml
+    ```
+
+2. As in FastSpeech2, [Montreal Forced Aligner](https://montreal-forced-aligner.readthedocs.io/en/latest/) (MFA) is used to obtain the alignments between the utterances and the phoneme sequences. Download and set up the environment to use MFA following the [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/installation.html). The version used in this project is `2.0.0a13`.
+
+    You can get alignments by either training MFA from scratch or using pre-trained model. Note that the training MFA may take several hours or days, depending on the corpus size.
+
+    ### Train MFA from scratch
+
+    To train MFA, grapheme-phoneme dictionary that covers all the words in the dataset is required. Following command will generate such dictionary in `lexicon/`.
+
+    ```bash
+    python3 prepare_data.py --extract_lexicon -p config/IEMOCAP/preprocess.yaml
+    ```
+
+    After that, train MFA.
+
+    ```bash
+    mfa train ./raw_data/IEMOCAP/sessions lexicon/iemocap-lexicon.txt preprocessed_data/IEMOCAP/TextGrid --output_model_path montreal-forced-aligner/iemocap-aligner --speaker_characters prosodylab -j 8 --clean
+    ```
+
+    It will generates both TextGrid in `preprocessed_data/IEMOCAP/TextGrid/` and trained models in `montreal-forced-aligner/`. See [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/aligning.html#align-using-only-the-data-set) for the details.
+
+    ### Using Pre-trained Models
+
+    If you want to re-align the dataset using the extracted lexicon dictionary and trained MFA models from the previous step, run the following command.
+
+    ```bash
+    mfa align ./raw_data/IEMOCAP/sessions lexicon/iemocap-lexicon.txt montreal-forced-aligner/iemocap-aligner.zip preprocessed_data/IEMOCAP/TextGrid --speaker_characters prosodylab -j 8 --clean
+    ```
+
+    It will generates TextGrid in `preprocessed_data/IEMOCAP/TextGrid/`. See [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/aligning.html#align-using-pretrained-models) for the details.
+
+3. Finally, run the preprocessing script. It will extract and save duration, energy, mel-spectrogram, and pitch in `preprocessed_data/IEMOCAP/` from each audio.
+
+    ```bash
+    python3 preprocess.py config/IEMOCAP/preprocess.yaml
+    ```
 
 ## Model Training
 
 Now you have all the prerequisites! Train the model using the following command:
 
+### Korean
+
 ```bash
 python3 train.py -p config/AIHub-MMV/preprocess.yaml -m config/AIHub-MMV/model.yaml -t config/AIHub-MMV/train.yaml
 ```
 
+### English
+
+```bash
+python3 train.py -p config/IEMOCAP/preprocess.yaml -m config/IEMOCAP/model.yaml -t config/IEMOCAP/train.yaml
+```
+
 # Inference
+
+### Korean
 
 To synthesize a single speech, try
 
@@ -108,6 +174,24 @@ python3 synthesize.py --source preprocessed_data/AIHub-MMV/val.txt --restore_ste
 ```
 
 to synthesize all utterances in `preprocessed_data/AIHub-MMV/val.txt`.
+
+### English
+
+To synthesize a single speech, try
+
+```bash
+python3 synthesize.py --text "YOUR_DESIRED_TEXT" --speaker_id SPEAKER_ID --emotion_id EMOTION_ID --arousal AROUSAL --valence VALENCE --restore_step STEP --mode single -p config/IEMOCAP/preprocess.yaml -m config/IEMOCAP/model.yaml -t config/IEMOCAP/train.yaml
+```
+
+All ids can be found in dictionary files (json files) in `preprocessed_data/IEMOCAP/`, and the generated utterances will be put in `output/result/IEMOCAP`.
+
+Batch inference is also supported, try
+
+```bash
+python3 synthesize.py --source preprocessed_data/IEMOCAP/val.txt --restore_step STEP --mode batch -p config/IEMOCAP/preprocess.yaml -m config/IEMOCAP/model.yaml -t config/IEMOCAP/train.yaml
+```
+
+to synthesize all utterances in `preprocessed_data/IEMOCAP/val.txt`.
 
 # TensorBoard
 
@@ -135,29 +219,88 @@ to serve TensorBoard on your localhost. The loss curves, synthesized mel-spectro
 
 ### Implementation Issues
 
-* Since the separator is learned only with 'sp' by the MFA's nature ([official document](https://montreal-forced-aligner.readthedocs.io/en/latest/data_format.html#transcription-normalization-and-dictionary-lookup)), spacing becomes a critical issue. Therefore, after text normalizing, the spacing is polished using the third-party module. The candidates were [PyKoSpacing](https://github.com/haven-jeon/PyKoSpacing) and [QuickSpacer](https://github.com/psj8252/quickspacer), but the latter is selected due to its high accuracy (fewer errors than PyKoSpacing).
-* Some incorrect transcriptions can be fixed manually from `preparation/aihub_mmv_fixed.txt` during run of `prepare_align.py`. Even afther that, you can still expand `preparation/aihub_mmv_fixed.txt` with additional corrections and run the following command to apply them. It will update raw text data and `filelist.txt` in `raw_path`, and lexicon dictionary in `lexicon/`.
+- (For Korean) Since the separator is learned only with 'sp' by the MFA's nature ([official document](https://montreal-forced-aligner.readthedocs.io/en/latest/data_format.html#transcription-normalization-and-dictionary-lookup)), spacing becomes a critical issue. Therefore, after text normalizing, the spacing is polished using the third-party module. The candidates were [PyKoSpacing](https://github.com/haven-jeon/PyKoSpacing) and [QuickSpacer](https://github.com/psj8252/quickspacer), but the latter is selected due to its high accuracy (fewer errors than PyKoSpacing).
+- Some incorrect transcriptions can be fixed manually from `preparation/*_fixed.txt` during run of `prepare_align.py`. Even afther that, you can still expand `preparation/*_fixed.txt` with additional corrections and run the following command to apply them. It will update raw text data and `filelist.txt` in `raw_path`, and lexicon dictionary in `lexicon/`.
 
-  ```bash
-  python3 prepare_data.py --apply_fixed_text -p config/AIHub-MMV/preprocess.yaml
-  ```
+    For korean, 
 
-  Note that it should be done after at least once running of `prepare_align.py` and before MFA aligning.
-* Also, some incorrect emotion labelings are fixed manually such as out of ranged value for either arousal or valence. These must be updated to build efficient emotion embedding space.
-* I emperically found that `TextGrid` extracted from the training process is worsely aligned than that of re-aligned using trained model after the first training. I'm not sure about the reason, but I can confirm that it's better to re-align the dataset using your trained model after finishing the first training especially when there are too many unaligned corpora. Or you can also enlarge the `beam` and `retry_beam` following this [issue](https://github.com/MontrealCorpusTools/Montreal-Forced-Aligner/issues/240#issuecomment-791172411) and [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/configuration_align.html#global-options) to get more aligned corpus with less accuracy.
+    ```bash
+    python3 prepare_data.py --apply_fixed_text -p config/AIHub-MMV/preprocess.yaml
+    ```
+
+    For English, 
+
+    ```bash
+    python3 prepare_data.py --apply_fixed_text -p config/IEMOCAP/preprocess.yaml
+    ```
+
+    Note that it should be done after at least once running of `prepare_align.py` and before MFA aligning.
+
+- Also, some incorrect emotion labelings are fixed manually such as out of ranged value for either arousal or valence. These must be updated to build efficient emotion embedding space.
+- I emperically found that `TextGrid` extracted from the training process is worsely aligned than that of re-aligned using trained model after the first training. I'm not sure about the reason, but I can confirm that it's better to re-align the dataset using your trained model after finishing the first training especially when there are too many unaligned corpora. And you can also enlarge the `beam` and `retry_beam` following this [issue](https://github.com/MontrealCorpusTools/Montreal-Forced-Aligner/issues/240#issuecomment-791172411) and [official document](https://montreal-forced-aligner.readthedocs.io/en/latest/configuration_align.html#global-options) to get more aligned corpus with less accuracy.
 
 ### Training with your own dataset (own language)
 
-* First, you need to transliterate the dataset by fitting `normalize()` function in `text/korean.py` and dictionary in `text/korean_dict.py`. If you are interested in adapting another language, you may need to prepare a grapheme-to-phoneme convertor of the language.
-* Get the files that have the words to be manually checked by following command. Results will be saved at `corpus_path/nonkr.txt`.
+- First, you need to transliterate the dataset by fitting `normalize()` function in `text/korean.py` and dictionary in `text/korean_dict.py`. If you are interested in adapting another language, you may need to prepare a grapheme-to-phoneme convertor of the language.
+- Get the files that have the words to be manually checked by following command. Results will be saved at `corpus_path/non*.txt`.
 
-  ```bash
-  python3 prepare_data.py --extract_nonkr -p config/AIHub-MMV/preprocess.yaml
-  ```
+    For Korean,
 
-  Based on it, prepare the the correction filelist in `preparation/` just like `aihub_mmv_fixed.txt`.
-* Then, follow the Train section start from Preprocess.
-* As an example, you can apply English emotional dataset (e.g, [IEMOCAP](https://sail.usc.edu/iemocap/) database), including all other languages, as described above.
+    ```bash
+    python3 prepare_data.py --extract_nonkr -p config/AIHub-MMV/preprocess.yaml
+    ```
+
+    For English,
+
+    ```bash
+    python3 prepare_data.py --extract_nonen -p config/IEMOCAP/preprocess.yaml
+    ```
+
+    Based on it, prepare the the correction filelist in `preparation/` just like `*_fixed.txt`.
+
+- Then, follow the Train section start from Preprocess.
+
+### Model Architecture
+
+You may only consider categorical emotional descriptor`emotion` without continuous emotional descriptor `arousal` and `valence` as follows:
+
+```python
+# In model/fastspeech2.py
+
+class FastSpeech2(nn.Module):
+    """ FastSpeech2 """
+
+    def __init__(self, preprocess_config, model_config):
+        super(FastSpeech2, self).__init__()
+
+				...
+
+				self.emotion_emb = None
+        if model_config["multi_emotion"]:
+            with open(
+                os.path.join(
+                    preprocess_config["path"]["preprocessed_path"], "emotions.json"
+                ),
+                "r",
+            ) as f:
+                json_raw = json.load(f)
+                n_emotion = len(json_raw["emotion_dict"])
+            self.emotion_emb = nn.Embedding(
+                n_emotion,
+                model_config["transformer"]["encoder_hidden"],
+            )
+
+		def forward(self, ... ):
+
+				...
+
+				if self.emotion_emb is not None:
+            output = output + self.emotion_emb(emotions).unsqueeze(1).expand(
+                -1, max_src_len, -1
+            )
+
+				...
+```
 
 # References
 
