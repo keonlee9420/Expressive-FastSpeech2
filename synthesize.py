@@ -60,7 +60,7 @@ def preprocess_english(text, preprocess_config):
 
     g2p = G2p()
     phones = []
-    words = re.split(r"([,;.\-\?\!\s+])", text)
+    words = filter(None, re.split(r"([,;.\-\?\!\s+])", text))
     for w in words:
         if w.lower() in lexicon:
             phones += lexicon[w.lower()]
