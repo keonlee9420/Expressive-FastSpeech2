@@ -1,6 +1,8 @@
 import re
 import argparse
 from string import punctuation
+import os
+import json
 
 import torch
 import yaml
@@ -81,7 +83,7 @@ def preprocess_english(text, preprocess_config):
     return np.array(sequence)
 
 
-def synthesize(model, step, configs, vocoder, batchs, control_values):
+def synthesize(model, step, configs, vocoder, batchs, control_values, tag):
     preprocess_config, model_config, train_config = configs
     pitch_control, energy_control, duration_control = control_values
 
@@ -102,6 +104,7 @@ def synthesize(model, step, configs, vocoder, batchs, control_values):
                 model_config,
                 preprocess_config,
                 train_config["path"]["result_path"],
+                tag,
             )
 
 
@@ -130,26 +133,26 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--speaker_id",
-        type=int,
-        default=0,
+        type=str,
+        default="p001",
         help="speaker ID for multi-speaker synthesis, for single-sentence mode only",
     )
     parser.add_argument(
         "--emotion_id",
-        type=int,
-        default=0,
+        type=str,
+        default="happy",
         help="emotion ID for multi-emotion synthesis, for single-sentence mode only",
     )
     parser.add_argument(
         "--arousal",
-        type=int,
-        default=3,
+        type=str,
+        default="3",
         help="arousal value for multi-emotion synthesis, for single-sentence mode only",
     )
     parser.add_argument(
         "--valence",
-        type=int,
-        default=3,
+        type=str,
+        default="3",
         help="valence value for multi-emotion synthesis, for single-sentence mode only",
     )
     parser.add_argument(
@@ -214,21 +217,30 @@ if __name__ == "__main__":
             batch_size=8,
             collate_fn=dataset.collate_fn,
         )
+        tag = None
     if args.mode == "single":
         emotions = arousals = valences = None
         ids = raw_texts = [args.text[:100]]
-        speakers = np.array([args.speaker_id])
+        with open(os.path.join(preprocess_config["path"]["preprocessed_path"], "speakers.json")) as f:
+            speaker_map = json.load(f)
+        speakers = np.array([speaker_map[args.speaker_id]])
         if model_config["multi_emotion"]:
-            emotions = np.array([args.emotion_id])
-            arousals = np.array([args.arousal])
-            valences = np.array([args.valence])
+            with open(os.path.join(preprocess_config["path"]["preprocessed_path"], "emotions.json")) as f:
+                json_raw = json.load(f)
+                emotion_map = json_raw["emotion_dict"]
+                arousal_map = json_raw["arousal_dict"]
+                valence_map = json_raw["valence_dict"]
+            emotions = np.array([emotion_map[args.emotion_id]])
+            arousals = np.array([arousal_map[args.arousal]])
+            valences = np.array([valence_map[args.valence]])
         if preprocess_config["preprocessing"]["text"]["language"] == "kr":
             texts = np.array([preprocess_korean(args.text, preprocess_config)])
         elif preprocess_config["preprocessing"]["text"]["language"] == "en":
             texts = np.array([preprocess_english(args.text, preprocess_config)])
         text_lens = np.array([len(texts[0])])
         batchs = [(ids, raw_texts, speakers, emotions, arousals, valences, texts, text_lens, max(text_lens))]
+        tag = f"{args.speaker_id}_{args.emotion_id}"
 
     control_values = args.pitch_control, args.energy_control, args.duration_control
 
-    synthesize(model, args.restore_step, configs, vocoder, batchs, control_values)
+    synthesize(model, args.restore_step, configs, vocoder, batchs, control_values, tag)

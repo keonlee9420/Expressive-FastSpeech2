@@ -222,7 +222,7 @@ def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_con
     return fig, wav_reconstruction, wav_prediction, basename
 
 
-def synth_samples(targets, predictions, vocoder, model_config, preprocess_config, path):
+def synth_samples(targets, predictions, vocoder, model_config, preprocess_config, path, tag=None):
 
     basenames = targets[0]
     for i in range(len(predictions[0])):
@@ -255,7 +255,7 @@ def synth_samples(targets, predictions, vocoder, model_config, preprocess_config
             stats,
             ["Synthetized Spectrogram"],
         )
-        plt.savefig(os.path.join(path, "{}.png".format(basename)))
+        plt.savefig(os.path.join(path, "{}{}.png".format(basename, f"_{tag}" if tag is not None else "")))
         plt.close()
 
     from .model import vocoder_infer
@@ -268,7 +268,7 @@ def synth_samples(targets, predictions, vocoder, model_config, preprocess_config
 
     sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
     for wav, basename in zip(wav_predictions, basenames):
-        wavfile.write(os.path.join(path, "{}.wav".format(basename)), sampling_rate, wav)
+        wavfile.write(os.path.join(path, "{}{}.wav".format(basename, f"_{tag}" if tag is not None else "")), sampling_rate, wav)
 
 
 def plot_mel(data, stats, titles):
