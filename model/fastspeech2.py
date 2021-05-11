@@ -50,24 +50,9 @@ class FastSpeech2(nn.Module):
             ) as f:
                 json_raw = json.load(f)
                 n_emotion = len(json_raw["emotion_dict"])
-                n_arousal = len(json_raw["arousal_dict"])
-                n_valence = len(json_raw["valence_dict"])
-            encoder_hidden = model_config["transformer"]["encoder_hidden"]
             self.emotion_emb = nn.Embedding(
                 n_emotion,
-                encoder_hidden//2,
-            )
-            self.arousal_emb = nn.Embedding(
-                n_arousal,
-                encoder_hidden//4,
-            )
-            self.valence_emb = nn.Embedding(
-                n_valence,
-                encoder_hidden//4,
-            )
-            self.emotion_linear = nn.Sequential(
-                nn.Linear(encoder_hidden, encoder_hidden),
-                nn.ReLU()
+                model_config["transformer"]["encoder_hidden"],
             )
 
     def forward(
@@ -104,8 +89,7 @@ class FastSpeech2(nn.Module):
             )
 
         if self.emotion_emb is not None:
-            emb = torch.cat((self.emotion_emb(emotions), self.arousal_emb(arousals), self.valence_emb(valences)), dim=-1) 
-            output = output + self.emotion_linear(emb).unsqueeze(1).expand(
+            output = output + self.emotion_emb(emotions).unsqueeze(1).expand(
                 -1, max_src_len, -1
             )
 
