@@ -3,6 +3,7 @@ import argparse
 from string import punctuation
 import os
 import json
+from tqdm import tqdm
 
 import torch
 import yaml
@@ -83,16 +84,20 @@ def preprocess_english(text, preprocess_config):
     return np.array(sequence)
 
 
-def synthesize(model, step, configs, vocoder, batchs, control_values, tag):
+def synthesize(model, step, configs, vocoder, batchs, control_values):
     preprocess_config, model_config, train_config = configs
     pitch_control, energy_control, duration_control = control_values
 
-    for batch in batchs:
+    for batch in tqdm(batchs):
         batch = to_device(batch, device)
         with torch.no_grad():
             # Forward
             output = model(
-                *(batch[2:]),
+                *(batch[2:6]),
+                text_embs=batch[6], 
+                history_lens=batch[7], 
+                history_text_embs=batch[8], 
+                history_speakers=batch[9],
                 p_control=pitch_control,
                 e_control=energy_control,
                 d_control=duration_control
@@ -104,7 +109,6 @@ def synthesize(model, step, configs, vocoder, batchs, control_values, tag):
                 model_config,
                 preprocess_config,
                 train_config["path"]["result_path"],
-                tag,
             )
 
 
@@ -123,7 +127,7 @@ if __name__ == "__main__":
         "--source",
         type=str,
         default=None,
-        help="path to a source file with format like train.txt and val.txt, for batch mode only",
+        help="path to a source file with format like train_dialog.txt and val_dialog.txt, for batch mode only",
     )
     parser.add_argument(
         "--text",
@@ -136,24 +140,6 @@ if __name__ == "__main__":
         type=str,
         default="p001",
         help="speaker ID for multi-speaker synthesis, for single-sentence mode only",
-    )
-    parser.add_argument(
-        "--emotion_id",
-        type=str,
-        default="happy",
-        help="emotion ID for multi-emotion synthesis, for single-sentence mode only",
-    )
-    parser.add_argument(
-        "--arousal",
-        type=str,
-        default="3",
-        help="arousal value for multi-emotion synthesis, for single-sentence mode only",
-    )
-    parser.add_argument(
-        "--valence",
-        type=str,
-        default="3",
-        help="valence value for multi-emotion synthesis, for single-sentence mode only",
     )
     parser.add_argument(
         "-p",
@@ -217,30 +203,9 @@ if __name__ == "__main__":
             batch_size=8,
             collate_fn=dataset.collate_fn,
         )
-        tag = None
     if args.mode == "single":
-        emotions = arousals = valences = None
-        ids = raw_texts = [args.text[:100]]
-        with open(os.path.join(preprocess_config["path"]["preprocessed_path"], "speakers.json")) as f:
-            speaker_map = json.load(f)
-        speakers = np.array([speaker_map[args.speaker_id]])
-        if model_config["multi_emotion"]:
-            with open(os.path.join(preprocess_config["path"]["preprocessed_path"], "emotions.json")) as f:
-                json_raw = json.load(f)
-                emotion_map = json_raw["emotion_dict"]
-                arousal_map = json_raw["arousal_dict"]
-                valence_map = json_raw["valence_dict"]
-            emotions = np.array([emotion_map[args.emotion_id]])
-            arousals = np.array([arousal_map[args.arousal]])
-            valences = np.array([valence_map[args.valence]])
-        if preprocess_config["preprocessing"]["text"]["language"] == "kr":
-            texts = np.array([preprocess_korean(args.text, preprocess_config)])
-        elif preprocess_config["preprocessing"]["text"]["language"] == "en":
-            texts = np.array([preprocess_english(args.text, preprocess_config)])
-        text_lens = np.array([len(texts[0])])
-        batchs = [(ids, raw_texts, speakers, emotions, arousals, valences, texts, text_lens, max(text_lens))]
-        tag = f"{args.speaker_id}_{args.emotion_id}"
+        raise NotImplementedError("single inference mode is not supported.")
 
     control_values = args.pitch_control, args.energy_control, args.duration_control
 
-    synthesize(model, args.restore_step, configs, vocoder, batchs, control_values, tag)
+    synthesize(model, args.restore_step, configs, vocoder, batchs, control_values)

@@ -16,7 +16,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def to_device(data, device):
-    if len(data) == 12:
+    if len(data) == 12+4:
         (
             ids,
             raw_texts,
@@ -30,6 +30,10 @@ def to_device(data, device):
             pitches,
             energies,
             durations,
+            text_embs,
+            history_lens,
+            history_text_embs,
+            history_speakers,
         ) = data
 
         speakers = torch.from_numpy(speakers).long().to(device)
@@ -40,6 +44,10 @@ def to_device(data, device):
         pitches = torch.from_numpy(pitches).float().to(device)
         energies = torch.from_numpy(energies).to(device)
         durations = torch.from_numpy(durations).long().to(device)
+        text_embs = torch.from_numpy(text_embs).float().to(device)
+        history_lens = torch.from_numpy(history_lens).to(device)
+        history_text_embs = torch.from_numpy(history_text_embs).float().to(device)
+        history_speakers = torch.from_numpy(history_speakers).long().to(device)
 
         return (
             ids,
@@ -54,77 +62,46 @@ def to_device(data, device):
             pitches,
             energies,
             durations,
+            text_embs,
+            history_lens,
+            history_text_embs,
+            history_speakers,
         )
 
-    if len(data) == 15:
+    if len(data) == 6+4:
         (
             ids,
             raw_texts,
             speakers,
-            emotions,
-            arousals,
-            valences,
             texts,
             src_lens,
             max_src_len,
-            mels,
-            mel_lens,
-            max_mel_len,
-            pitches,
-            energies,
-            durations,
+            text_embs,
+            history_lens,
+            history_text_embs,
+            history_speakers,
         ) = data
 
         speakers = torch.from_numpy(speakers).long().to(device)
-        emotions = torch.from_numpy(emotions).long().to(device)
-        arousals = torch.from_numpy(arousals).long().to(device)
-        valences = torch.from_numpy(valences).long().to(device)
         texts = torch.from_numpy(texts).long().to(device)
         src_lens = torch.from_numpy(src_lens).to(device)
-        mels = torch.from_numpy(mels).float().to(device)
-        mel_lens = torch.from_numpy(mel_lens).to(device)
-        pitches = torch.from_numpy(pitches).float().to(device)
-        energies = torch.from_numpy(energies).to(device)
-        durations = torch.from_numpy(durations).long().to(device)
+        text_embs = torch.from_numpy(text_embs).float().to(device)
+        history_lens = torch.from_numpy(history_lens).to(device)
+        history_text_embs = torch.from_numpy(history_text_embs).float().to(device)
+        history_speakers = torch.from_numpy(history_speakers).long().to(device)
 
         return (
             ids,
             raw_texts,
             speakers,
-            emotions,
-            arousals,
-            valences,
             texts,
             src_lens,
             max_src_len,
-            mels,
-            mel_lens,
-            max_mel_len,
-            pitches,
-            energies,
-            durations,
+            text_embs,
+            history_lens,
+            history_text_embs, 
+            history_speakers,
         )
-
-    if len(data) == 6:
-        (ids, raw_texts, speakers, texts, src_lens, max_src_len) = data
-
-        speakers = torch.from_numpy(speakers).long().to(device)
-        texts = torch.from_numpy(texts).long().to(device)
-        src_lens = torch.from_numpy(src_lens).to(device)
-
-        return (ids, raw_texts, speakers, texts, src_lens, max_src_len)
-
-    if len(data) == 9:
-        (ids, raw_texts, speakers, emotions, arousals, valences, texts, src_lens, max_src_len) = data
-
-        speakers = torch.from_numpy(speakers).long().to(device)
-        emotions = torch.from_numpy(emotions).long().to(device)
-        arousals = torch.from_numpy(arousals).long().to(device)
-        valences = torch.from_numpy(valences).long().to(device)
-        texts = torch.from_numpy(texts).long().to(device)
-        src_lens = torch.from_numpy(src_lens).to(device)
-
-        return (ids, raw_texts, speakers, emotions, arousals, valences, texts, src_lens, max_src_len) 
 
 
 def log(
@@ -172,19 +149,19 @@ def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_con
     basename = targets[0][0]
     src_len = predictions[8][0].item()
     mel_len = predictions[9][0].item()
-    mel_target = targets[9][0, :mel_len].detach().transpose(0, 1)
+    mel_target = targets[6][0, :mel_len].detach().transpose(0, 1)
     mel_prediction = predictions[1][0, :mel_len].detach().transpose(0, 1)
-    duration = targets[14][0, :src_len].detach().cpu().numpy()
+    duration = targets[11][0, :src_len].detach().cpu().numpy()
     if preprocess_config["preprocessing"]["pitch"]["feature"] == "phoneme_level":
-        pitch = targets[12][0, :src_len].detach().cpu().numpy()
+        pitch = targets[9][0, :src_len].detach().cpu().numpy()
         pitch = expand(pitch, duration)
     else:
-        pitch = targets[12][0, :mel_len].detach().cpu().numpy()
+        pitch = targets[9][0, :mel_len].detach().cpu().numpy()
     if preprocess_config["preprocessing"]["energy"]["feature"] == "phoneme_level":
-        energy = targets[13][0, :src_len].detach().cpu().numpy()
+        energy = targets[10][0, :src_len].detach().cpu().numpy()
         energy = expand(energy, duration)
     else:
-        energy = targets[13][0, :mel_len].detach().cpu().numpy()
+        energy = targets[10][0, :mel_len].detach().cpu().numpy()
 
     with open(
         os.path.join(preprocess_config["path"]["preprocessed_path"], "stats.json")
@@ -255,7 +232,9 @@ def synth_samples(targets, predictions, vocoder, model_config, preprocess_config
             stats,
             ["Synthetized Spectrogram"],
         )
-        plt.savefig(os.path.join(path, "{}{}.png".format(basename, f"_{tag}" if tag is not None else "")))
+        dialog = basename.split("_")[2].replace("c", "clip_")
+        os.makedirs(os.path.join(path, dialog), exist_ok=True)
+        plt.savefig(os.path.join(path, dialog, "{}{}.png".format(basename, f"_{tag}" if tag is not None else "")))
         plt.close()
 
     from .model import vocoder_infer
@@ -268,7 +247,8 @@ def synth_samples(targets, predictions, vocoder, model_config, preprocess_config
 
     sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
     for wav, basename in zip(wav_predictions, basenames):
-        wavfile.write(os.path.join(path, "{}{}.wav".format(basename, f"_{tag}" if tag is not None else "")), sampling_rate, wav)
+        dialog = basename.split("_")[2].replace("c", "clip_")
+        wavfile.write(os.path.join(path, dialog, "{}{}.wav".format(basename, f"_{tag}" if tag is not None else "")), sampling_rate, wav)
 
 
 def plot_mel(data, stats, titles):

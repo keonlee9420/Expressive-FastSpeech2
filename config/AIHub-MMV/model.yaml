@@ -10,6 +10,13 @@ transformer:
   encoder_dropout: 0.2
   decoder_dropout: 0.2
 
+history_encoder:
+  max_history_len: 10
+  text_emb_size: 512
+  context_layer: 2 
+  context_hidden: 128
+  context_dropout: 0.2
+
 variance_predictor:
   filter_size: 256
   kernel_size: 3
@@ -29,8 +36,6 @@ variance_embedding:
 #   attn_head: 4
 
 multi_speaker: True
-
-multi_emotion: True
 
 max_seq_len: 2000
 

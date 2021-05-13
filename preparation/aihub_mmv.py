@@ -6,6 +6,7 @@ import shutil
 import json
 import librosa
 import soundfile
+import numpy as np
 from glob import glob
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
@@ -258,3 +259,107 @@ def apply_fixed_text(preprocess_config):
     filelist_fixed.close()
 
     extract_lexicon(preprocess_config)
+
+
+def split_into_dialog(preprocess_config, model_config):
+    max_seq_len = model_config["max_seq_len"]
+    raw_path = preprocess_config["path"]["raw_path"]
+    preprocessed_path = preprocess_config["path"]["preprocessed_path"]
+    train_filelist_path = os.path.join(preprocessed_path, "train.txt")
+    val_filelist_path = os.path.join(preprocessed_path, "val.txt")
+    unaligned_filelist_path = os.path.join(preprocessed_path, "TextGrid", "unaligned.txt")
+    
+    unaligned_dialog = set()
+    unaligned_speaker = dict()
+    if os.path.isfile(unaligned_filelist_path):
+        with open(unaligned_filelist_path, 'r', encoding='utf-8') as f:
+            for line in f.readlines():
+                basename = line.split()[0]
+                speaker = basename.split("_")[2]
+                dialog = basename.split("_")[3].strip("c")
+                if speaker in unaligned_speaker:
+                    unaligned_speaker[speaker] += 1
+                else:
+                    unaligned_speaker[speaker] = 1
+                unaligned_dialog.add(dialog)
+
+    out = list()
+    with open(train_filelist_path, 'r', encoding='utf-8') as f:
+        for line in f.readlines():
+            out.append(line)
+    with open(val_filelist_path, 'r', encoding='utf-8') as f:
+        for line in f.readlines():
+            out.append(line)
+    dialog_sanity_count = dict()
+
+    print("Build dialog_sanity_count dictionary...")
+    for m in tqdm(out):
+        basename = m.split("|")[0]
+        dialog = basename.split("_")[2].strip("c")
+        turns = [tg_path.replace(".wav", "") for tg_path in os.listdir(os.path.join(raw_path, "clips", f"clip_{dialog}")) if ".wav" in tg_path]
+        mel_path = os.path.join(
+            preprocessed_path,
+            "mel",
+            "{}-mel-{}.npy".format(basename.split("_")[1], basename),
+        )
+        mel = np.load(mel_path)
+        if dialog not in dialog_sanity_count:
+            dialog_sanity_count[dialog] = [len(turns), 1, mel.shape[0]]
+        else:
+            dialog_sanity_count[dialog][1] += 1
+            dialog_sanity_count[dialog][2] = max(dialog_sanity_count[dialog][2], mel.shape[0])
+    
+    def is_sanity(dialog, dialog_sanity_count):
+        if dialog_sanity_count[dialog][0] == dialog_sanity_count[dialog][1] and dialog_sanity_count[dialog][2] < max_seq_len:
+            return True
+        return False
+
+    train, val = list(), list()
+    val_speaker = set()
+    val_dialog = set()
+    train_dialog = set()
+    dialog_max_turn = dict()
+    # max_seq_len_final = -float('inf')
+
+    print("Build (sanity) conversational dataset...")
+    for m in tqdm(out):
+        basename = m.split("|")[0]
+        speaker = basename.split("_")[1]
+        dialog = basename.split("_")[2].strip("c")
+        if dialog in unaligned_dialog or not is_sanity(dialog, dialog_sanity_count):
+            continue
+        if dialog not in train_dialog and speaker not in val_speaker:
+            val_speaker.add(speaker)
+            val_dialog.add(dialog)
+            val.append(m)
+        elif dialog not in train_dialog and dialog in val_dialog:
+            val.append(m)
+        else:
+            train_dialog.add(dialog)
+            train.append(m)
+        dialog_max_turn[dialog] = dialog_sanity_count[dialog][1]
+        duration_path = os.path.join(
+            preprocessed_path,
+            "duration",
+            "{}-duration-{}.npy".format(speaker, basename),
+        )
+        duration = np.load(duration_path)
+
+        # max_seq_len_final = max(max_seq_len_final, duration.sum())
+    
+    # print("1:", len(val_speaker))
+    # print("2:", len(train_dialog), len(val_dialog))
+    # print("3:", len(train_dialog) + len(val_dialog))
+    # print("4:", len(train_dialog - val_dialog))
+    # print("5:", len(train), len(val))
+    # print("max_seq_len_final", max_seq_len_final)
+    
+    # Write metadata
+    with open(os.path.join(preprocessed_path, "dialog_max_turn.json"), "w") as f:
+        f.write(json.dumps(dialog_max_turn))
+    with open(os.path.join(preprocessed_path, "train_dialog.txt"), "w", encoding="utf-8") as f:
+        for m in train:
+            f.write(m)
+    with open(os.path.join(preprocessed_path, "val_dialog.txt"), "w", encoding="utf-8") as f:
+        for m in val:
+            f.write(m)

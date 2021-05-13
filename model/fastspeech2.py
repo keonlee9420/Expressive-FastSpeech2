@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from transformer import Encoder, Decoder, PostNet
-from .modules import VarianceAdaptor
+from .modules import ConversationalContextEncoder, VarianceAdaptor
 from utils.tools import get_mask_from_lengths
 
 
@@ -16,8 +16,22 @@ class FastSpeech2(nn.Module):
     def __init__(self, preprocess_config, model_config):
         super(FastSpeech2, self).__init__()
         self.model_config = model_config
+        assert model_config["multi_speaker"], "Should be multi-speaker mode"
+
+        with open(
+            os.path.join(
+                preprocess_config["path"]["preprocessed_path"], "speakers.json"
+            ),
+            "r",
+        ) as f:
+            n_speaker = len(json.load(f))
+        self.speaker_emb = nn.Embedding(
+            n_speaker,
+            model_config["transformer"]["encoder_hidden"],
+        )
 
         self.encoder = Encoder(model_config)
+        self.context_encoder = ConversationalContextEncoder(model_config, self.speaker_emb)
         self.variance_adaptor = VarianceAdaptor(preprocess_config, model_config)
         self.decoder = Decoder(model_config)
         self.mel_linear = nn.Linear(
@@ -26,56 +40,9 @@ class FastSpeech2(nn.Module):
         )
         self.postnet = PostNet()
 
-        self.speaker_emb = None
-        if model_config["multi_speaker"]:
-            with open(
-                os.path.join(
-                    preprocess_config["path"]["preprocessed_path"], "speakers.json"
-                ),
-                "r",
-            ) as f:
-                n_speaker = len(json.load(f))
-            self.speaker_emb = nn.Embedding(
-                n_speaker,
-                model_config["transformer"]["encoder_hidden"],
-            )
-
-        self.emotion_emb = None
-        if model_config["multi_emotion"]:
-            with open(
-                os.path.join(
-                    preprocess_config["path"]["preprocessed_path"], "emotions.json"
-                ),
-                "r",
-            ) as f:
-                json_raw = json.load(f)
-                n_emotion = len(json_raw["emotion_dict"])
-                n_arousal = len(json_raw["arousal_dict"])
-                n_valence = len(json_raw["valence_dict"])
-            encoder_hidden = model_config["transformer"]["encoder_hidden"]
-            self.emotion_emb = nn.Embedding(
-                n_emotion,
-                encoder_hidden//2,
-            )
-            self.arousal_emb = nn.Embedding(
-                n_arousal,
-                encoder_hidden//4,
-            )
-            self.valence_emb = nn.Embedding(
-                n_valence,
-                encoder_hidden//4,
-            )
-            self.emotion_linear = nn.Sequential(
-                nn.Linear(encoder_hidden, encoder_hidden),
-                nn.ReLU()
-            )
-
     def forward(
         self,
         speakers,
-        emotions,
-        arousals,
-        valences,
         texts,
         src_lens,
         max_src_len,
@@ -85,6 +52,10 @@ class FastSpeech2(nn.Module):
         p_targets=None,
         e_targets=None,
         d_targets=None,
+        text_embs=None,
+        history_lens=None,
+        history_text_embs=None,
+        history_speakers=None,
         p_control=1.0,
         e_control=1.0,
         d_control=1.0,
@@ -98,14 +69,20 @@ class FastSpeech2(nn.Module):
 
         output = self.encoder(texts, src_masks)
 
+        # Context Encoding
+        context_enc = self.context_encoder(
+            text_embs, 
+            speakers, 
+            history_text_embs, 
+            history_speakers, 
+            history_lens
+        )
+        output = output + context_enc.unsqueeze(1).expand(
+            -1, max_src_len, -1
+        )
+
         if self.speaker_emb is not None:
             output = output + self.speaker_emb(speakers).unsqueeze(1).expand(
-                -1, max_src_len, -1
-            )
-
-        if self.emotion_emb is not None:
-            emb = torch.cat((self.emotion_emb(emotions), self.arousal_emb(arousals), self.valence_emb(valences)), dim=-1) 
-            output = output + self.emotion_linear(emb).unsqueeze(1).expand(
                 -1, max_src_len, -1
             )
 

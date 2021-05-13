@@ -20,7 +20,7 @@ def evaluate(model, step, configs, logger=None, vocoder=None):
 
     # Get dataset
     dataset = Dataset(
-        "val.txt", preprocess_config, model_config, train_config, sort=False, drop_last=False
+        "val_dialog.txt", preprocess_config, model_config, train_config, sort=False, drop_last=False
     )
     batch_size = train_config["optimizer"]["batch_size"]
     loader = DataLoader(

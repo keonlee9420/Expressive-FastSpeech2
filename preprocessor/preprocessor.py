@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 import audio as Audio
+from sentence_transformers import SentenceTransformer
 
 random.seed(1234)
 
@@ -29,6 +30,7 @@ class Preprocessor:
         self.val_size = config["preprocessing"]["val_size"]
         self.sampling_rate = config["preprocessing"]["audio"]["sampling_rate"]
         self.hop_length = config["preprocessing"]["stft"]["hop_length"]
+        self.text_embbeder = SentenceTransformer('distiluse-base-multilingual-cased-v1')
 
         assert config["preprocessing"]["pitch"]["feature"] in [
             "phoneme_level",
@@ -92,6 +94,7 @@ class Preprocessor:
         return filelist_dict, emotion_dict
 
     def build_from_path(self):
+        os.makedirs((os.path.join(self.out_dir, "text_emb")), exist_ok=True)
         os.makedirs((os.path.join(self.out_dir, "mel")), exist_ok=True)
         os.makedirs((os.path.join(self.out_dir, "pitch")), exist_ok=True)
         os.makedirs((os.path.join(self.out_dir, "energy")), exist_ok=True)
@@ -226,6 +229,9 @@ class Preprocessor:
         # Read raw text
         with open(text_path, "r") as f:
             raw_text = f.readline().strip("\n")
+        
+        # Text embedding
+        text_emb = self.text_embbeder.encode([raw_text])[0]
 
         # Compute fundamental frequency
         pitch, t = pw.dio(
@@ -277,6 +283,9 @@ class Preprocessor:
             energy = energy[: len(duration)]
 
         # Save files
+        text_emb_filename = "{}-text_emb-{}.npy".format(speaker, basename)
+        np.save(os.path.join(self.out_dir, "text_emb", text_emb_filename), text_emb)
+
         dur_filename = "{}-duration-{}.npy".format(speaker, basename)
         np.save(os.path.join(self.out_dir, "duration", dur_filename), duration)
 

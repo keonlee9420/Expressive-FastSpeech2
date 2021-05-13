@@ -1,7 +1,7 @@
 path:
-  ckpt_path: "./output/ckpt/AIHub-MMV"
-  log_path: "./output/log/AIHub-MMV"
-  result_path: "./output/result/AIHub-MMV"
+  ckpt_path: "./output/ckpt/AIHub-MMV_convers"
+  log_path: "./output/log/AIHub-MMV_convers"
+  result_path: "./output/result/AIHub-MMV_convers"
 optimizer:
   batch_size: 16
   betas: [0.9, 0.98]

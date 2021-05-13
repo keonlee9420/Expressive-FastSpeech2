@@ -26,5 +26,4 @@ Some important hyper-parameters are explained here.
 - **transformer.decoder_layer**: the original paper used a 4-layer decoder, but we find it better to use a 6-layer decoder, especially for multi-speaker TTS.
 - **variance_embedding.pitch_quantization**: when the pitch values are normalized as specified in ``preprocess.yaml``, it is not valid to use log-scale quantization bins as proposed in the original paper, so we use linear-scaled bins instead.
 - **multi_speaker**: to apply a speaker embedding table to enable multi-speaker TTS or not.
-- **multi_emotion**: to apply a emotion embedding table to enable multi-emotion TTS or not.
 - **vocoder.speaker**: should be set to 'universal'.
