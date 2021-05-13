@@ -30,8 +30,6 @@ variance_embedding:
 
 multi_speaker: True
 
-multi_emotion: True
-
 max_seq_len: 2000
 
 vocoder:

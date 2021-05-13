@@ -14,22 +14,15 @@ class Dataset(Dataset):
     def __init__(
         self, filename, preprocess_config, model_config, train_config, sort=False, drop_last=False
     ):
-        self.dataset_name = preprocess_config["dataset"]
         self.preprocessed_path = preprocess_config["path"]["preprocessed_path"]
         self.cleaners = preprocess_config["preprocessing"]["text"]["text_cleaners"]
-        self.max_seq_len = model_config["max_seq_len"]
         self.batch_size = train_config["optimizer"]["batch_size"]
 
-        self.basename, self.speaker, self.text, self.raw_text, self.aux_data = self.process_meta(
+        self.basename, self.speaker, self.text, self.raw_text = self.process_meta(
             filename
         )
         with open(os.path.join(self.preprocessed_path, "speakers.json")) as f:
             self.speaker_map = json.load(f)
-        with open(os.path.join(self.preprocessed_path, "emotions.json")) as f:
-            json_raw = json.load(f)
-            self.emotion_map = json_raw["emotion_dict"]
-            self.arousal_map = json_raw["arousal_dict"]
-            self.valence_map = json_raw["valence_dict"]
         self.sort = sort
         self.drop_last = drop_last
 
@@ -40,10 +33,6 @@ class Dataset(Dataset):
         basename = self.basename[idx]
         speaker = self.speaker[idx]
         speaker_id = self.speaker_map[speaker]
-        aux_data = self.aux_data[idx].split("|")
-        emotion = self.emotion_map[aux_data[-3]]
-        arousal = self.arousal_map[aux_data[-2]]
-        valence = self.valence_map[aux_data[-1]]
         raw_text = self.raw_text[idx]
         phone = np.array(text_to_sequence(self.text[idx], self.cleaners))
         mel_path = os.path.join(
@@ -74,9 +63,6 @@ class Dataset(Dataset):
         sample = {
             "id": basename,
             "speaker": speaker_id,
-            "emotion": emotion,
-            "arousal": arousal,
-            "valence": valence,
             "text": phone,
             "raw_text": raw_text,
             "mel": mel,
@@ -95,32 +81,18 @@ class Dataset(Dataset):
             speaker = []
             text = []
             raw_text = []
-            aux_data = []
             for line in tqdm(f.readlines()):
                 line_split = line.strip("\n").split("|")
                 n, s, t, r = line_split[:4]
-                mel_path = os.path.join(
-                    self.preprocessed_path,
-                    "mel",
-                    "{}-mel-{}.npy".format(s, n),
-                )
-                mel = np.load(mel_path)
-                if mel.shape[0] > self.max_seq_len:
-                    continue
-                a = "|".join(line_split[4:])
                 name.append(n)
                 speaker.append(s)
                 text.append(t)
                 raw_text.append(r)
-                aux_data.append(a)
-            return name, speaker, text, raw_text, aux_data
+            return name, speaker, text, raw_text
 
     def reprocess(self, data, idxs):
         ids = [data[idx]["id"] for idx in idxs]
         speakers = [data[idx]["speaker"] for idx in idxs]
-        emotions = [data[idx]["emotion"] for idx in idxs]
-        arousals = [data[idx]["arousal"] for idx in idxs]
-        valences = [data[idx]["valence"] for idx in idxs]
         texts = [data[idx]["text"] for idx in idxs]
         raw_texts = [data[idx]["raw_text"] for idx in idxs]
         mels = [data[idx]["mel"] for idx in idxs]
@@ -132,9 +104,6 @@ class Dataset(Dataset):
         mel_lens = np.array([mel.shape[0] for mel in mels])
 
         speakers = np.array(speakers)
-        emotions = np.array(emotions)
-        arousals = np.array(arousals)
-        valences = np.array(valences)
         texts = pad_1D(texts)
         mels = pad_2D(mels)
         pitches = pad_1D(pitches)
@@ -145,9 +114,6 @@ class Dataset(Dataset):
             ids,
             raw_texts,
             speakers,
-            emotions,
-            arousals,
-            valences,
             texts,
             text_lens,
             max(text_lens),
@@ -185,9 +151,8 @@ class TextDataset(Dataset):
     def __init__(self, filepath, preprocess_config, model_config):
         self.cleaners = preprocess_config["preprocessing"]["text"]["text_cleaners"]
         self.preprocessed_path = preprocess_config["path"]["preprocessed_path"]
-        self.max_seq_len = model_config["max_seq_len"]
 
-        self.basename, self.speaker, self.text, self.raw_text, self.aux_data = self.process_meta(
+        self.basename, self.speaker, self.text, self.raw_text = self.process_meta(
             filepath
         )
         with open(
@@ -196,11 +161,6 @@ class TextDataset(Dataset):
             )
         ) as f:
             self.speaker_map = json.load(f)
-        with open(os.path.join(self.preprocessed_path, "emotions.json")) as f:
-            json_raw = json.load(f)
-            self.emotion_map = json_raw["emotion_dict"]
-            self.arousal_map = json_raw["arousal_dict"]
-            self.valence_map = json_raw["valence_dict"]
 
     def __len__(self):
         return len(self.text)
@@ -209,14 +169,10 @@ class TextDataset(Dataset):
         basename = self.basename[idx]
         speaker = self.speaker[idx]
         speaker_id = self.speaker_map[speaker]
-        aux_data = self.aux_data[idx].split("|")
-        emotion = self.emotion_map[aux_data[-3]]
-        arousal = self.arousal_map[aux_data[-2]]
-        valence = self.valence_map[aux_data[-1]]
         raw_text = self.raw_text[idx]
         phone = np.array(text_to_sequence(self.text[idx], self.cleaners))
 
-        return (basename, speaker_id, emotion, arousal, valence, phone, raw_text)
+        return (basename, speaker_id, phone, raw_text)
 
     def process_meta(self, filename):
         with open(filename, "r", encoding="utf-8") as f:
@@ -228,35 +184,22 @@ class TextDataset(Dataset):
             for line in tqdm(f.readlines()):
                 line_split = line.strip("\n").split("|")
                 n, s, t, r = line_split[:4]
-                mel_path = os.path.join(
-                    self.preprocessed_path,
-                    "mel",
-                    "{}-mel-{}.npy".format(s, n),
-                )
-                mel = np.load(mel_path)
-                if mel.shape[0] > self.max_seq_len:
-                    continue
-                a = "|".join(line_split[4:])
                 name.append(n)
                 speaker.append(s)
                 text.append(t)
                 raw_text.append(r)
-                aux_data.append(a)
-            return name, speaker, text, raw_text, aux_data
+            return name, speaker, text, raw_text
 
     def collate_fn(self, data):
         ids = [d[0] for d in data]
         speakers = np.array([d[1] for d in data])
-        emotions = np.array([d[2] for d in data])
-        arousals = np.array([d[3] for d in data])
-        valences = np.array([d[4] for d in data])
-        texts = [d[5] for d in data]
-        raw_texts = [d[6] for d in data]
+        texts = [d[2] for d in data]
+        raw_texts = [d[3] for d in data]
         text_lens = np.array([text.shape[0] for text in texts])
 
         texts = pad_1D(texts)
 
-        return ids, raw_texts, speakers, emotions, arousals, valences, texts, text_lens, max(text_lens)
+        return ids, raw_texts, speakers, texts, text_lens, max(text_lens)
 
 
 if __name__ == "__main__":

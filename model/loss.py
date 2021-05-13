@@ -24,7 +24,7 @@ class FastSpeech2Loss(nn.Module):
             pitch_targets,
             energy_targets,
             duration_targets,
-        ) = inputs[9:]
+        ) = inputs[6:]
         (
             mel_predictions,
             postnet_mel_predictions,
