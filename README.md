@@ -31,7 +31,7 @@ pip3 install -r requirements.txt
 
 # Synthesize Using Pre-trained Model
 
-Not permitted to share pre-trained model publically due to the copyright of [AIHub Multimodal Video AI datasets](https://www.aihub.or.kr/aidata/137) and [IEMOCAP database](https://sail.usc.edu/iemocap/).
+Not permitted to share pre-trained model publicly due to the copyright of [AIHub Multimodal Video AI datasets](https://www.aihub.or.kr/aidata/137) and [IEMOCAP database](https://sail.usc.edu/iemocap/).
 
 # Train
 
