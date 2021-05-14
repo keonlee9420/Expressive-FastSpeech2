@@ -1,13 +1,5 @@
 # Emotional-FastSpeech2 - PyTorch Implementation
 
-## Contributions
-
-1. **`Non-autoregressive Emotional TTS`**: This project aims to provide a cornerstone for future research and application on a non-autoregressive emotional TTS. For dataset, [AIHub Multimodal Video AI datasets](https://www.aihub.or.kr/aidata/137) and [IEMOCAP database](https://sail.usc.edu/iemocap/) are picked for Korean and English, respectively.
-2. **`Annotated Data Processing`**: This project shed light on how to handle the new dataset, even with a different language, for the successful training of non-autoregressive emotional TTS.
-3. **`English and Korean TTS`**: In addition to English, this project gives a broad view of treating Korean for the non-autoregressive TTS where the additional data processing must be considered under the language-specific features (e.g., training Montreal Forced Aligner with your own language and dataset). Please closely look into `text/`.
-
-## Model Architecture
-
 <p align="center">
     <img src="img/model.png" width="80%">
 </p>
@@ -262,10 +254,3 @@ to serve TensorBoard on your localhost. The loss curves, synthesized mel-spectro
     Based on it, prepare the the correction filelist in `preparation/` just like `*_fixed.txt`.
 
 - Then, follow the Train section start from Preprocess.
-
-# References
-
-* [ming024&#39;s FastSpeech2](https://github.com/ming024/FastSpeech2) (version after 2021.02.26 updates)
-* [HGU-DLLAB&#39;s Korean-FastSpeech2-Pytorch](https://github.com/HGU-DLLAB/Korean-FastSpeech2-Pytorch)
-* [hccho2&#39;s Tacotron2-Wavenet-Korean-TTS](https://github.com/hccho2/Tacotron2-Wavenet-Korean-TTS)
-* [carpedm20&#39; multi-speaker-tacotron-tensorflow](https://github.com/carpedm20/multi-speaker-tacotron-tensorflow)
