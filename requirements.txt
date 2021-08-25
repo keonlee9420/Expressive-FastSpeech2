@@ -15,7 +15,7 @@ tensorboard==2.4.1
 python_speech_features==0.6
 pandas==1.1.3
 pysptk==0.1.18
-tensorflow==2.4.0
+tensorflow==2.5.1
 PyYAML==5.4.1
 tqdm==4.46.1
 moviepy==1.0.3
